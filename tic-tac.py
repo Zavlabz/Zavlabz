@@ -8,7 +8,7 @@ def tic_tac_toe_checker(board: List[List[str]]) -> str:
         if board[0][i] == board[1][i] == board[2][i] and board[0][i] != "-":
             return f"{board[0][i]} ура победа!"
 
-    # Проверка диагоналей
+    # Проверка диагоналейц
     if board[0][0] == board[1][1] == board[2][2] and board[0][0] != "-":
         return f"{board[0][0]} ура победа!"
     if board[0][2] == board[1][1] == board[2][0] and board[0][2] != "-":
