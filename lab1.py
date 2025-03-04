@@ -1,4 +1,15 @@
 import datetime
+from collections import defaultdict
+
+
+class DeadlineError(Exception):
+    pass
+
+
+class Person:
+    def __init__(self, first_name: str, last_name: str):
+        self.first_name = first_name
+        self.last_name = last_name
 
 
 class Homework:
@@ -11,42 +22,71 @@ class Homework:
         return datetime.datetime.now() - self.created < self.deadline
 
 
-class Student:
-    def __init__(self, first_name: str, last_name: str):
-        self.first_name = first_name
-        self.last_name = last_name
+class HomeworkResult:
+    def __init__(self, author: 'Student', homework: Homework, solution: str):
+        if not isinstance(homework, Homework):
+            raise TypeError("You gave a not Homework object")
 
-    def do_homework(self, homework: Homework):
+        self.homework = homework
+        self.solution = solution
+        self.author = author
+        self.created = datetime.datetime.now()
+
+
+class Student(Person):
+    def do_homework(self, homework: Homework, solution: str) -> HomeworkResult:
         if not homework.is_active():
-            print("You are late")
-            return None
-        return homework
+            raise DeadlineError("You are late")
+        return HomeworkResult(self, homework, solution)
 
 
-class Teacher:
-    def __init__(self, first_name: str, last_name: str):
-        self.first_name = first_name
-        self.last_name = last_name
+class Teacher(Person):
+    homework_done = defaultdict(set)
 
-    @staticmethod #Можно использовать без использования создания класса
+    @staticmethod
     def create_homework(text: str, days: int) -> Homework:
         return Homework(text, days)
 
+    def check_homework(self, result: HomeworkResult) -> bool:
+        if len(result.solution) > 5:
+            self.homework_done[result.homework].add(result)
+            return True
+        return False
 
-if __name__ == "__main__":
-    teacher = Teacher("Arina", "Strish")
-    student = Student("Maxim", "Pivkin")
+    @classmethod
+    def reset_results(cls, homework: Homework = None):
+        if homework:
+            cls.homework_done.pop(homework, None)
+        else:
+            cls.homework_done.clear()
 
-    print(teacher.last_name)
 
-    expired_homework = teacher.create_homework("python classes [experiment 1]", 52)
-    print(expired_homework.created)
-    print(expired_homework.deadline)
-    print(expired_homework.text)
+if __name__ == '__main__':
+    opp_teacher = Teacher('Arina', 'Strizh')
+    advanced_python_teacher = Teacher('Aleksandr', 'Smetanin')
 
-    create_homework_too = teacher.create_homework
-    oop_homework = create_homework_too("Create some classes about homework teacher and other goooog think", 5)
-    print(oop_homework.deadline)
+    lazy_student = Student('Misha', 'Elsufiev')
+    good_student = Student('Pivkin', 'Maxim')
 
-    student.do_homework(oop_homework)
-    student.do_homework(expired_homework)
+    oop_hw = opp_teacher.create_homework('Learn OOP', 1)
+    docs_hw = opp_teacher.create_homework('Read docs', 5)
+
+    result_1 = good_student.do_homework(oop_hw, 'I have done this hw')
+    result_2 = good_student.do_homework(docs_hw, 'I have done this hw too')
+    result_3 = lazy_student.do_homework(docs_hw, 'done')
+    try:
+        result_4 = HomeworkResult(good_student, "fff", "Solution")
+    except Exception:
+        print('There was an exception here')
+    opp_teacher.check_homework(result_1)
+    temp_1 = opp_teacher.homework_done
+
+    advanced_python_teacher.check_homework(result_1)
+    temp_2 = Teacher.homework_done
+    assert temp_1 == temp_2
+
+    opp_teacher.check_homework(result_2)
+    opp_teacher.check_homework(result_3)
+
+    print(Teacher.homework_done[oop_hw])
+    Teacher.reset_results()
