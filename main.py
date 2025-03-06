@@ -1,147 +1,159 @@
-"""
-Необходимо создать 3 класса и взаимосвязь между ними (Student, Teacher,
-Homework)
-Наследование в этой задаче использовать не нужно.
-Для работы с временем использовать модуль datetime
+import asyncio
+import json
+import re
+from decimal import Decimal, InvalidOperation
+from typing import List, Dict, Any
 
-1. Homework принимает на вход 2 атрибута: текст задания и количество дней
-на это задание
-Атрибуты:
-    text - текст задания
-    deadline - хранит объект datetime.timedelta с количеством
-    дней на выполнение
-    created - c точной датой и временем создания
-Методы:
-    is_active - проверяет не истело ли время на выполнение задания,
-    возвращает boolean
+import aiohttp
+from bs4 import BeautifulSoup
 
-2. Student
-Атрибуты:
-    last_name
-    first_name
-Методы:
-    do_homework - принимает объект Homework и возвращает его же,
-    если задание уже просрочено, то печатет 'You are late' и возвращает None
-
-3. Teacher
-Атрибуты:
-     last_name
-     first_name
-Методы:
-    create_homework - текст задания и количество дней на это задание,
-    возвращает экземпляр Homework
-    Обратите внимание, что для работы этого метода не требуется сам объект.
-
-PEP8 соблюдать строго.
-Всем перечисленным выше атрибутам и методам классов сохранить названия.
-К названием остальных переменных, классов и тд. подходить ответственно -
-давать логичные подходящие имена.
-"""
-import datetime
+# Константы
+BASE_URL = "https://markets.businessinsider.com"
+INDEX_URL = f"{BASE_URL}/index/components/s&p_500"
+CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
 
 
-if __name__ == '__main__':
-    teacher = Teacher('Daniil', 'Shadrin')
-    student = Student('Roman', 'Petrov')
-    teacher.last_name  # Daniil
-    student.first_name  # Petrov
-
-    expired_homework = teacher.create_homework('Learn functions', 0)
-    expired_homework.created  # Example: 2019-05-26 16:44:30.688762
-    expired_homework.deadline  # 0:00:00
-    expired_homework.text  # 'Learn functions'
-
-    # create function from method and use it
-    create_homework_too = teacher.create_homework
-    oop_homework = create_homework_too('create 2 simple classes', 5)
-    oop_homework.deadline  # 5 days, 0:00:00
-
-    student.do_homework(oop_homework)
-    student.do_homework(expired_homework)  # You are late
-__________________________________________________________________
+# Универсальная функция для получения текста с URL
+async def fetch_text(session: aiohttp.ClientSession, url: str) -> str:
+    async with session.get(url) as response:
+        return await response.text()
 
 
-"""
-В этом задании будем улучшать нашу систему классов из задания прошлой лекции
-(Student, Teacher, Homework)
-Советую обратить внимание на defaultdict из модуля collection для
-использования как общую переменную
-
-
-1. Как то не правильно, что после do_homework мы возвращаем все тот же
-объект - будем возвращать какой-то результат работы (HomeworkResult)
-
-HomeworkResult принимает объект автора задания, принимает исходное задание
-и его решение в виде строки
-Атрибуты:
-    homework - для объекта Homework, если передан не этот класс -  выкинуть
-    подходящие по смыслу исключение с сообщением:
-    'You gave a not Homework object'
-
-    solution - хранит решение ДЗ как строку
-    author - хранит объект Student
-    created - c точной датой и временем создания
-
-2. Если задание уже просрочено хотелось бы видеть исключение при do_homework,
-а не просто принт 'You are late'.
-Поднимайте исключение DeadlineError с сообщением 'You are late' вместо print.
-
-3. Student и Teacher имеют одинаковые по смыслу атрибуты
-(last_name, first_name) - избавиться от дублирования с помощью наследования
-
-4.
-Teacher
-Атрибут:
-    homework_done - структура с интерфейсом как в словаря, сюда поподают все
-    HomeworkResult после успешного прохождения check_homework
-    (нужно гаранитровать остутствие повторяющихся результатов по каждому
-    заданию), группировать по экземплярам Homework.
-    Общий для всех учителей. Вариант ипользования смотри в блоке if __main__...
-Методы:
-    check_homework - принимает экземпляр HomeworkResult и возвращает True если
-    ответ студента больше 5 символов, так же при успешной проверке добавить в
-    homework_done.
-    Если меньше 5 символов - никуда не добавлять и вернуть False.
-
-    reset_results - если передать экземпряр Homework - удаляет только
-    результаты этого задания из homework_done, если ничего не передавать,
-    то полностью обнулит homework_done.
-
-PEP8 соблюдать строго.
-Всем перечисленным выше атрибутам и методам классов сохранить названия.
-К названием остальных переменных, классов и тд. подходить ответственно -
-давать логичные подходящие имена.
-"""
-import datetime
-from collections import defaultdict
-
-
-if __name__ == '__main__':
-    opp_teacher = Teacher('Daniil', 'Shadrin')
-    advanced_python_teacher = Teacher('Aleksandr', 'Smetanin')
-
-    lazy_student = Student('Roman', 'Petrov')
-    good_student = Student('Lev', 'Sokolov')
-
-    oop_hw = opp_teacher.create_homework('Learn OOP', 1)
-    docs_hw = opp_teacher.create_homework('Read docs', 5)
-
-    result_1 = good_student.do_homework(oop_hw, 'I have done this hw')
-    result_2 = good_student.do_homework(docs_hw, 'I have done this hw too')
-    result_3 = lazy_student.do_homework(docs_hw, 'done')
+# Преобразование строки в Decimal с обработкой ошибок
+def to_decimal(s: str) -> Decimal:
     try:
-        result_4 = HomeworkResult(good_student, "fff", "Solution")
-    except Exception:
-        print('There was an exception here')
-    opp_teacher.check_homework(result_1)
-    temp_1 = opp_teacher.homework_done
+        return Decimal(s.replace(",", "").strip())
+    except InvalidOperation:
+        return Decimal("0")
 
-    advanced_python_teacher.check_homework(result_1)
-    temp_2 = Teacher.homework_done
-    assert temp_1 == temp_2
 
-    opp_teacher.check_homework(result_2)
-    opp_teacher.check_homework(result_3)
+# Получение курса USD→RUB с сайта ЦБ РФ
+async def fetch_usd_rate(session: aiohttp.ClientSession) -> Decimal:
+    xml_data = await fetch_text(session, CBR_URL)
+    soup = BeautifulSoup(xml_data, "lxml-xml")
+    # Идентификатор для USD у ЦБ РФ: R01235
+    rate_str = soup.find("Valute", {"ID": "R01235"}).Value.text.replace(",", ".")
+    print(f"Текущий курс USD→RUB: {rate_str}")
+    return Decimal(rate_str)
 
-    print(Teacher.homework_done[oop_hw])
-    Teacher.reset_results()
+
+# Парсинг страницы индекса для извлечения ссылок на компании и годового роста
+def parse_index_page(html: str) -> List[Dict[str, Any]]:
+    soup = BeautifulSoup(html, "lxml")
+    rows = soup.select("div.table-responsive table.table tbody tr")
+    companies = []
+    print(f"Найдено строк в таблице: {len(rows)}")
+    for row in rows:
+        cells = row.find_all("td")
+        if len(cells) < 2:
+            continue
+        link_tag = cells[0].find("a")
+        if not link_tag:
+            continue
+        comp_url = BASE_URL + link_tag.get("href")
+        # Извлечение годового роста (из последней ячейки)
+        growth_str = cells[-1].get_text(separator=" ", strip=True)
+        growth_str = growth_str.replace("%", "").replace(",", ".")
+        try:
+            growth = float(growth_str)
+        except ValueError:
+            print(f"Не удалось преобразовать рост '{growth_str}'")
+            growth = 0.0
+        companies.append({"url": comp_url, "growth": growth})
+    return companies
+
+
+# Парсинг детальной информации со страницы компании
+async def parse_company_details(session: aiohttp.ClientSession, url: str, usd_rate: Decimal) -> Dict[str, Any]:
+    html = await fetch_text(session, url)
+    soup = BeautifulSoup(html, "lxml")
+
+    header = soup.find("h1", class_="price-section__identifiers")
+    if not header:
+        print(f"Блок с именем и кодом не найден: {url}")
+        return {}
+
+    name = header.find("span", class_="price-section__label").text.strip()
+    code = header.find("span", class_="price-section__category").text.strip()
+
+    price_usd = to_decimal(soup.find("span", class_="price-section__current-value").text)
+    price_rub = price_usd * usd_rate
+
+    # Поиск P/E Ratio по текстовому шаблону
+    pe_search = soup.find(string=re.compile("P/E Ratio"))
+    if pe_search:
+        pe = to_decimal(pe_search.find_next("span").text)
+    else:
+        print(f"P/E Ratio не найден для {name} ({code})")
+        pe = Decimal("inf")
+
+    # Получаем значения 52 Week Low/High
+    low_tag = soup.find(string="52 Week Low")
+    high_tag = soup.find(string="52 Week High")
+    if low_tag and high_tag:
+        week_low = to_decimal(low_tag.find_next("span").text)
+        week_high = to_decimal(high_tag.find_next("span").text)
+    else:
+        print(f"Не найдены данные 52 Week Low/High для {name} ({code})")
+        week_low, week_high = Decimal("0"), Decimal("0")
+
+    # Вычисление потенциальной прибыли
+    if week_low == 0:
+        potential_profit = 0
+    else:
+        potential_profit = ((week_high - week_low) / week_low) * 100
+
+    print(f"Обработана компания: {name} ({code})")
+    return {
+        "name": name,
+        "code": code,
+        "price": float(price_rub),
+        "P/E": float(pe),
+        "potential_profit": float(potential_profit)
+    }
+
+
+# Сохранение данных в JSON-файл
+def save_to_json(filename: str, data: List[Dict[str, Any]]):
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+    print(f"Сохранено {len(data)} записей в файл: {filename}")
+
+
+# Сохранение топ-10 по различным критериям
+def save_top_ten(companies: List[Dict[str, Any]]):
+    def sort_and_save(filename: str, key_func, reverse: bool):
+        sorted_list = sorted(companies, key=key_func, reverse=reverse)[:10]
+        save_to_json(filename, sorted_list)
+
+    sort_and_save("top_price.json", key_func=lambda c: c["price"], reverse=True)
+    sort_and_save("top_pe.json", key_func=lambda c: c["P/E"], reverse=False)
+    sort_and_save("top_growth.json", key_func=lambda c: c["growth"], reverse=True)
+    sort_and_save("top_potential_profit.json", key_func=lambda c: c["potential_profit"], reverse=True)
+
+
+# Основная функция: собираем курс, индекс, данные по компаниям и сохраняем результаты
+async def main():
+    async with aiohttp.ClientSession() as session:
+        usd_rate = await fetch_usd_rate(session)
+        index_html = await fetch_text(session, INDEX_URL)
+        index_companies = parse_index_page(index_html)
+
+        # Обработка страниц компаний параллельно
+        tasks = [parse_company_details(session, comp["url"], usd_rate) for comp in index_companies]
+        details_list = await asyncio.gather(*tasks)
+
+        # Объединяем детальную информацию с годовым ростом из индекса
+        final_companies = []
+        for detail, comp in zip(details_list, index_companies):
+            if detail:
+                detail["growth"] = comp["growth"]
+                final_companies.append(detail)
+
+        print(f"Обработано компаний: {len(final_companies)}")
+        save_top_ten(final_companies)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+    print("Все данные успешно собраны и сохранены")
