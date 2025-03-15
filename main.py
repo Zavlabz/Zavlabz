@@ -35,7 +35,7 @@ class TableData:
             return False
 
     def __iter__(self):
-        # Итерация по записям таблицы без загрузки всей таблицы в память
+
         with sqlite3.connect(self.database_name) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -44,26 +44,26 @@ class TableData:
             for row in cursor:
                 yield dict(row)
 
-# Пример тестового кода
+
 if __name__ == "__main__":
-    # Создаём экземпляр для таблицы 'presidents'
+    # Создаём экземпл
     presidents = TableData(database_name='example.sqlite', table_name='presidents')
 
-    # Выводим общее количество записей в таблице
+
     print("Количество записей в таблице presidents:", len(presidents))
 
-    # Задаём имя для проверки (пример: 'Yeltsin')
+
     sample_name = 'Yeltsin'
     print(f"Существует ли запись с именем '{sample_name}'?", sample_name in presidents)
 
-    # Выводим запись с именем 'Yeltsin'
+
     try:
         record = presidents[sample_name]
         print(f"Запись для '{sample_name}':", record)
     except KeyError as e:
         print(e)
 
-    # Итерация по таблице и вывод всех имен
+    #вывод всех имен
     print("Список имён всех записей:")
     for rec in presidents:
         print(rec['name'])
